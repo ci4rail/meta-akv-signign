@@ -12,7 +12,7 @@ S = "${WORKDIR}/git"
 inherit cmake pkgconfig native
 
 DEPENDS = "\
-    azure-sdk-cpp-native \
+    azure-sdk-cpp \
     json-c-native \
     openssl-native \
     p11-kit-native \

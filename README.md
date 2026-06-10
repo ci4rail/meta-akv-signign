@@ -5,135 +5,90 @@ Toradex secure-boot builds. It builds `jepio/azure-keyvault-pkcs11` for the
 native build environment and wires the Toradex HSM flow to Azure Key Vault
 through OpenSSL's PKCS#11 engine.
 
-The private key remains in Azure Key Vault. The Yocto build receives only an
-OIDC-capable Azure identity and requests remote signing operations.
+The private keys remain in Azure Key Vault. The Yocto build receives only a
+GitHub Actions OIDC identity, downloads the public certificates, and requests
+remote signing operations.
+
+## Provisioning Model
+
+The layer supports one provisioning model:
+
+- FIT, HAB CSF, and HAB IMG are Azure Key Vault certificate objects with
+  associated private keys.
+- Their certificate and key objects have matching names.
+- The four HAB SRK CA certificates are local public build inputs.
+- The SRK private keys remain offline.
+
+For each configured `/keys/<name>` ID, the layer downloads the matching
+`/certificates/<name>` object. The PKCS#11 provider exposes the downloaded FIT
+certificate's public key to `mkimage` and exposes the CSF/IMG certificates to
+NXP CST.
+
+The Azure identity needs only these Key Vault data-plane permissions:
+
+```json
+[
+  "Microsoft.KeyVault/vaults/keys/read",
+  "Microsoft.KeyVault/vaults/keys/sign/action",
+  "Microsoft.KeyVault/vaults/certificates/read"
+]
+```
+
+It does not need secret access.
 
 ## Layer Setup
 
-Add the layer to `BBLAYERS`, for example:
-
-```bitbake
-BBLAYERS += "${TOPDIR}/../src/meta-akv-signing"
-```
-
-Then enable Azure signing:
+Add the layer to `BBLAYERS`, then configure the three Azure Key Vault key IDs
+and exactly four local SRK certificates:
 
 ```bitbake
 AKV_SIGNING_ENABLE = "1"
 
-# FIT uses a different key from HAB/imx-boot.
-AZURE_FIT_KEY_ID = "https://vault-firmware-fit-signing.vault.azure.net/keys/ci4rail-moducop-fit"
-
-AKV_FIT_KEY_LABEL = "ci4rail-moducop-fit"
-```
-
-This layer always uses HAB SRK CA mode: the four SRK certificates are public
-trust anchors, and separate CSF/IMG keys sign imx-boot. Provide the four public
-SRK certificates and the CSF/IMG Azure signing keys:
-
-```bitbake
-AKV_HAB_SRK_CERT_IDS = "\
-    https://vault-firmware-signing.vault.azure.net/secrets/ci4rail-moducop-srk1-crt \
-    https://vault-firmware-signing-2.vault.azure.net/secrets/ci4rail-moducop-srk2-crt \
-    https://vault-firmware-signing-3.vault.azure.net/secrets/ci4rail-moducop-srk3-crt \
-    https://vault-firmware-signing-4.vault.azure.net/secrets/ci4rail-moducop-srk4-crt \
-"
+AZURE_FIT_KEY_ID = "https://vault-firmware-signing.vault.azure.net/keys/ci4rail-moducop-fit"
 AKV_HAB_CSF_KEY_ID = "https://vault-firmware-signing.vault.azure.net/keys/ci4rail-moducop-csf"
 AKV_HAB_IMG_KEY_ID = "https://vault-firmware-signing.vault.azure.net/keys/ci4rail-moducop-img"
-AKV_HAB_CSF_KEY_LABEL = "ci4rail-moducop-csf"
-AKV_HAB_IMG_KEY_LABEL = "ci4rail-moducop-img"
-```
 
-NXP `srktool` consumes X.509 certificates, not raw public keys/JWKs. With
-`AKV_HAB_FETCH_SRK_CERTS = "1"` (the default), the layer downloads the public
-SRK certificates from `AKV_HAB_SRK_CERT_IDS` and uses them to generate the SRK
-table/fuse files. The IDs may point to AKV certificate objects or secrets
-containing PEM/base64 DER certificates:
-
-```bitbake
-AKV_HAB_SRK_CERT_IDS = "\
-    https://vault-firmware-signing.vault.azure.net/certificates/ci4rail-moducop-g0 \
-    https://vault-firmware-signing-2.vault.azure.net/certificates/ci4rail-moducop-g1 \
-    https://vault-firmware-signing-3.vault.azure.net/certificates/ci4rail-moducop-g2 \
-    https://vault-firmware-signing-4.vault.azure.net/certificates/ci4rail-moducop-g3 \
-"
-```
-
-Do not use bare Key Vault keys for SRK public material. The raw public key is
-not enough for CST. First wrap the public key material into the matching X.509
-SRK CA certificate form during key provisioning.
-
-Instead of fetching from AKV, you can provide the four SRK certificates as file
-paths:
-
-```bitbake
 AKV_HAB_SRK_CERT_FILES = "\
-    /secure/srk1.pem \
-    /secure/srk2.pem \
-    /secure/srk3.pem \
-    /secure/srk4.pem \
+    /secure/srk1.der \
+    /secure/srk2.der \
+    /secure/srk3.der \
+    /secure/srk4.der \
 "
 ```
 
-or as base64 DER certificate blobs:
+Key names become PKCS#11 labels automatically. Keep the FIT key name stable
+because U-Boot stores it as the FIT signature's key-name hint.
 
-```bitbake
-AKV_HAB_SRK_CERTIFICATES = "<srk1-der-base64> <srk2-der-base64> <srk3-der-base64> <srk4-der-base64>"
-AKV_HAB_CSF_CERTIFICATE = "<csf-der-base64>"
-AKV_HAB_IMG_CERTIFICATE = "<img-der-base64>"
-```
-
-With `AKV_HAB_GENERATE_SRK_TABLE = "1"` (the default), the layer runs NXP
-`srktool` and points `TDX_IMX_HAB_CST_SRK` and
-`TDX_IMX_HAB_CST_SRK_FUSE` at generated files under `${WORKDIR}/akv-srk`.
-Those files are public trust-anchor artifacts; only the private signing
-operation remains remote in Azure Key Vault.
-
-## AKV Provisioning Model
-
-This layer supports one HAB mode: subordinate CSF/IMG signing with SRK CA
-certificates. It does not need the SRK private keys during normal image builds.
-It needs the four public SRK certificates to build the SRK table/fuse hash, plus
-separate CSF and IMG signing key/certificate objects in AKV. The SRK certs
-should have `basicConstraints = CA:TRUE` and
-`keyUsage = keyCertSign`. CSF/IMG certs should be non-CA/user certificates
-signed by the selected SRK. This is the shape generated by the CST HAB4 PKI
-scripts.
-
-Generate the HAB keys and certificates with CST or an offline controlled
-ceremony. Keep the SRK private keys offline for issuing/revoking subordinate
-certificates; do not import them into AKV unless you intentionally want AKV to
-custody the CA keys. Store the SRK public certs as build inputs, AKV secrets, or
-other controlled public artifacts. Import only the CSF/IMG private keys with
-their matching certificates into AKV for image signing.
-
-The FIT signing key is independent of HAB. Create a separate AKV key or
-certificate object for FIT signing and configure it with `AZURE_FIT_KEY_ID`.
-Its public key/certificate must be embedded into U-Boot's control DTB by the
-FIT signing flow; it is not part of the HAB SRK table or SoC fuses.
+The layer always uses HAB SRK CA mode. It generates the HAB SRK table and fuse
+hash from the four local certificates, then uses the separate CSF and IMG
+certificate-backed keys for signing.
 
 ## GitHub Actions OIDC
 
-The layer expects Azure identity values from the environment:
+The build environment must provide:
 
 ```text
-AZURE_SUBSCRIPTION_ID
 AZURE_TENANT_ID
-AZURE_APP_ID
+AZURE_APP_ID or AZURE_CLIENT_ID
 AZURE_FEDERATED_TOKEN_FILE
 ```
 
-`AZURE_APP_ID` is mapped to `AZURE_CLIENT_ID` before invoking `mkimage`, because
-Azure Identity's workload identity credential expects `AZURE_CLIENT_ID`.
+`AZURE_SUBSCRIPTION_ID` and `AZURE_AUTHORITY_HOST` may also be passed through.
 
-A GitHub Actions job should create the federated token file before starting the
-Yocto build. The Azure application/service principal needs permission to perform
-`sign` and public-key read/get operations on the configured keys.
+The federated credential should be scoped to the repository and protected
+GitHub environment used for firmware signing. The signing job needs:
+
+```yaml
+permissions:
+  contents: read
+  id-token: write
+```
+
+The OIDC token file and Azure identity variables must be mounted or passed into
+the container that runs BitBake.
 
 ## Notes
 
 `azure-keyvault-pkcs11` is a signing-oriented PKCS#11 implementation, not a
-full token-management provider. Keys must already exist in Azure Key Vault.
-
-The `azure-sdk-cpp-native` recipe is intentionally narrow: it builds only the
-Azure SDK components needed by the PKCS#11 provider.
+token-management provider. All three certificate-backed keys must already
+exist in Azure Key Vault.

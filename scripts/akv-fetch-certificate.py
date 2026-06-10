@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Fetch public SRK certificate material from Azure Key Vault for NXP srktool."""
+"""Fetch the public certificate associated with an Azure Key Vault key."""
 
 import argparse
 import base64
 import json
 import os
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -22,28 +23,20 @@ def env(name, fallback=None):
     return value
 
 
-def derive_object_url(object_id):
-    parsed = urllib.parse.urlparse(object_id)
+def certificate_url(key_id):
+    parsed = urllib.parse.urlparse(key_id)
     parts = [part for part in parsed.path.split("/") if part]
-    if len(parts) < 2:
-        raise SystemExit(f"Invalid Key Vault object id: {object_id}")
-
-    kind = parts[0]
-    name = parts[1]
-    version = parts[2] if len(parts) > 2 and kind in ("certificates", "secrets") else ""
-    if kind not in ("certificates", "keys", "secrets"):
+    if parsed.scheme != "https" or len(parts) < 2 or parts[0] != "keys":
         raise SystemExit(
-            f"Expected a Key Vault key, certificate, or secret id: {object_id}"
+            f"Expected an Azure Key Vault key ID: {key_id}"
         )
 
-    object_kind = "certificates" if kind == "keys" else kind
-    object_parts = [object_kind, name]
-    if version:
-        object_parts.append(version)
-    url = urllib.parse.urlunparse(
-        (parsed.scheme, parsed.netloc, "/" + "/".join(object_parts), "", "", "")
+    cert_parts = ["certificates", parts[1]]
+    if len(parts) > 2:
+        cert_parts.append(parts[2])
+    return urllib.parse.urlunparse(
+        (parsed.scheme, parsed.netloc, "/" + "/".join(cert_parts), "", "", "")
     )
-    return kind, url
 
 
 def request_json(url, data=None, headers=None):
@@ -68,9 +61,8 @@ def get_token():
     with open(token_file, "r", encoding="utf-8") as handle:
         assertion = handle.read().strip()
 
-    token_url = authority.rstrip("/") + f"/{tenant_id}/oauth2/v2.0/token"
     response = request_json(
-        token_url,
+        authority.rstrip("/") + f"/{tenant_id}/oauth2/v2.0/token",
         data={
             "client_id": client_id,
             "scope": VAULT_SCOPE,
@@ -83,54 +75,25 @@ def get_token():
 
 
 def decode_der(value):
-    padded = value + "=" * (-len(value) % 4)
-    try:
-        return base64.b64decode(padded)
-    except ValueError:
-        return base64.urlsafe_b64decode(padded)
-
-
-def cert_bytes_from_secret(value):
-    if "-----BEGIN CERTIFICATE-----" in value:
-        lines = [
-            line.strip()
-            for line in value.splitlines()
-            if "CERTIFICATE" not in line and line.strip()
-        ]
-        return decode_der("".join(lines))
-    return decode_der(value.strip())
+    return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--id",
-        required=True,
-        help="Key Vault key/certificate id, or secret id containing PEM/base64 DER",
-    )
+    parser.add_argument("--key-id", required=True, help="Azure Key Vault key ID")
     parser.add_argument("--output", required=True, help="Output DER certificate path")
     args = parser.parse_args()
 
-    kind, object_url = derive_object_url(args.id)
-    separator = "&" if "?" in object_url else "?"
-    object_url = f"{object_url}{separator}api-version={API_VERSION}"
+    url = certificate_url(args.key_id) + f"?api-version={API_VERSION}"
+    response = request_json(url, headers={"Authorization": f"Bearer {get_token()}"})
+    if "cer" not in response:
+        raise SystemExit(f"Key Vault returned no certificate material for {args.key_id}")
 
-    token = get_token()
-    response = request_json(object_url, headers={"Authorization": f"Bearer {token}"})
-    if kind == "secrets":
-        cert_bytes = cert_bytes_from_secret(response["value"])
-    else:
-        if "cer" not in response:
-            raise SystemExit(
-                "Key Vault returned no certificate material. Use a certificate "
-                "object, a secret containing PEM/base64 DER, or provide "
-                "AKV_HAB_SRK_CERT_FILES/AKV_HAB_SRK_CERTIFICATES."
-            )
-        cert_bytes = decode_der(response["cer"])
-
-    os.makedirs(os.path.dirname(args.output), exist_ok=True)
+    output_dir = os.path.dirname(args.output)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
     with open(args.output, "wb") as handle:
-        handle.write(cert_bytes)
+        handle.write(decode_der(response["cer"]))
     return 0
 
 

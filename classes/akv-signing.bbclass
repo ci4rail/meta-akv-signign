@@ -21,7 +21,7 @@ AKV_PKCS11_CONFIG_HOME = "${WORKDIR}/akv-signing"
 AKV_PKCS11_MODULE_PATH = "${RECIPE_SYSROOT_NATIVE}${libdir}/pkcs11/azure-keyvault-pkcs11.so"
 AKV_FETCH_CERT_TOOL = "${AKV_SIGNING_LAYERDIR}/scripts/akv-fetch-certificate.py"
 
-DEPENDS:append = "${@bb.utils.contains('AKV_SIGNING_ENABLE', '1', ' azure-keyvault-pkcs11-native imx-code-signing-tool-native libp11-native openssl-native python3-native', '', d)}"
+DEPENDS:append = "${@bb.utils.contains('AKV_SIGNING_ENABLE', '1', ' azure-keyvault-pkcs11-native coreutils-native imx-code-signing-tool-native libp11-native openssl-native python3-native', '', d)}"
 
 export XDG_CONFIG_HOME = "${AKV_PKCS11_CONFIG_HOME}"
 export PKCS11_MODULE_PATH = "${AKV_PKCS11_MODULE_PATH}"

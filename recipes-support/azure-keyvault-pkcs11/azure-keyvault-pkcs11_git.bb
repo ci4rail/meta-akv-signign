@@ -3,7 +3,10 @@ HOMEPAGE = "https://github.com/jepio/azure-keyvault-pkcs11"
 LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
-SRC_URI = "git://github.com/jepio/azure-keyvault-pkcs11.git;protocol=https;branch=main"
+SRC_URI = "\
+    git://github.com/jepio/azure-keyvault-pkcs11.git;protocol=https;branch=main \
+    file://0001-limit-credential-chain-to-non-interactive-ci-sources.patch \
+"
 SRCREV = "c72d89bf0b17f8c21a93870efaaabb93c0dc9c63"
 PV = "0.1+git"
 

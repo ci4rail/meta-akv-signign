@@ -55,8 +55,10 @@ python __anonymous() {
 
         for task in ("do_assemble_fitimage", "do_assemble_fitimage_initramfs", "do_uboot_assemble_fitimage"):
             d.appendVarFlag(task, "prefuncs", " akv_signing_prepare")
+            d.setVarFlag(task, "network", "1")
         if d.getVar("PN") == "imx-boot":
             d.appendVarFlag("do_compile", "prefuncs", " akv_signing_prepare")
+            d.setVarFlag("do_compile", "network", "1")
 }
 
 def akv_key_name(key_id, variable):
@@ -88,8 +90,12 @@ akv_signing_prepare() {
     akv_fetch_certificate() {
         key_id="$1"
         output="$2"
-        python3 "${AKV_FETCH_CERT_TOOL}" --key-id "${key_id}" --output "${output}" || \
+        fetch_log="${output}.fetch.log"
+        python3 "${AKV_FETCH_CERT_TOOL}" --key-id "${key_id}" --output "${output}" > "${fetch_log}" 2>&1 || {
+            bbwarn "Certificate fetch output for ${key_id} follows:"
+            cat "${fetch_log}"
             bbfatal "Could not fetch the certificate matching Azure Key Vault key ${key_id}"
+        }
     }
 
     akv_emit_slot() {

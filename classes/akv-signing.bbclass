@@ -21,7 +21,7 @@ AKV_PKCS11_CONFIG_HOME = "${WORKDIR}/akv-signing"
 AKV_PKCS11_MODULE_PATH = "${RECIPE_SYSROOT_NATIVE}${libdir}/pkcs11/azure-keyvault-pkcs11.so"
 AKV_FETCH_CERT_TOOL = "${AKV_SIGNING_LAYERDIR}/scripts/akv-fetch-certificate.py"
 
-DEPENDS:append = "${@bb.utils.contains('AKV_SIGNING_ENABLE', '1', ' azure-keyvault-pkcs11 imx-code-signing-tool-native libp11-native openssl-native python3-native', '', d)}"
+DEPENDS:append = "${@bb.utils.contains('AKV_SIGNING_ENABLE', '1', ' azure-keyvault-pkcs11-native imx-code-signing-tool-native libp11-native openssl-native python3-native', '', d)}"
 
 export XDG_CONFIG_HOME = "${AKV_PKCS11_CONFIG_HOME}"
 export PKCS11_MODULE_PATH = "${AKV_PKCS11_MODULE_PATH}"
@@ -39,7 +39,7 @@ python __anonymous() {
         img_label = akv_key_name(d.getVar("AKV_HAB_IMG_KEY_ID"), "AKV_HAB_IMG_KEY_ID")
 
         d.setVar("TDX_SIGNED_HSM", "1")
-        d.setVar("TDX_SIGNED_HSM_PKCS11_MODULE_PROVIDER", "azure-keyvault-pkcs11")
+        d.setVar("TDX_SIGNED_HSM_PKCS11_MODULE_PROVIDER", "azure-keyvault-pkcs11-native")
         d.setVar("TDX_SIGNED_HSM_PKCS11_MODULE_PATH", "${libdir}/pkcs11/azure-keyvault-pkcs11.so")
         if not d.getVar("TDX_SIGNED_HSM_TOKEN_PIN"):
             d.setVar("TDX_SIGNED_HSM_TOKEN_PIN", "unused")

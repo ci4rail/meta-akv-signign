@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: ci4rail <ci4rail@example.invalid>
+Date: Wed, 17 Jun 2026 13:22:00 +0200
+Subject: [PATCH] Build only libraries required for AKV signing
+
+The native signing tools only require Azure Core, Identity, and Key Vault.
+Avoid configuring unrelated SDK folders, which pull in optional dependencies
+such as AMQP, OpenTelemetry, and Storage/LibXml2.
+
+Upstream-Status: Inappropriate [Yocto recipe-specific build scope]
+---
+ CMakeLists.txt | 10 ----------
+ 1 file changed, 10 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 535d1a7a..d2ebad38 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -178,17 +178,8 @@ endif()
+ 
+ # sub-projects
+ add_subdirectory(sdk/core)
+-add_subdirectory(sdk/appconfiguration)
+-add_subdirectory(sdk/attestation)
+-# AMQP doesn't work for UWP yet, and eventhubs depends on AMQP, so we cannot include eventhubs on UWP.
+-if (NOT DISABLE_AMQP)
+-    add_subdirectory(sdk/eventhubs)
+-endif()
+ add_subdirectory(sdk/identity)
+ add_subdirectory(sdk/keyvault)
+-add_subdirectory(sdk/storage)
+-add_subdirectory(sdk/template)
+-add_subdirectory(sdk/tables)
+ 
+ if(BUILD_SAMPLES)
+   add_subdirectory(samples/integration/vcpkg-all-smoke)
+-- 
+2.39.5

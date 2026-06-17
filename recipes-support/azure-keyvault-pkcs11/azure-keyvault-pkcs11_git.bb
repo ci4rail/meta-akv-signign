@@ -9,13 +9,13 @@ PV = "0.1+git"
 
 S = "${WORKDIR}/git"
 
-inherit cmake pkgconfig native
+inherit cmake pkgconfig
 
 DEPENDS = "\
     azure-sdk-cpp \
-    json-c-native \
-    openssl-native \
-    p11-kit-native \
+    json-c \
+    openssl \
+    p11-kit \
 "
 
 EXTRA_OECMAKE += "\
@@ -23,3 +23,5 @@ EXTRA_OECMAKE += "\
 "
 
 FILES:${PN} += "${libdir}/pkcs11/azure-keyvault-pkcs11.so"
+
+BBCLASSEXTEND = "native"

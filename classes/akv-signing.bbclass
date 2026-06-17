@@ -52,8 +52,8 @@ python __anonymous() {
         d.setVar("TDX_IMX_HAB_CST_SRK", d.getVar("AKV_HAB_SRK_TABLE"))
         d.setVar("TDX_IMX_HAB_CST_SRK_FUSE", d.getVar("AKV_HAB_SRK_FUSE"))
         d.setVar("TDX_IMX_HAB_CST_BIN", d.getVar("AKV_HAB_CST_WRAPPER"))
-        d.setVar("TDX_IMX_HAB_CST_CSF_CERT", akv_pkcs11_key_uri(csf_label))
-        d.setVar("TDX_IMX_HAB_CST_IMG_CERT", akv_pkcs11_key_uri(img_label))
+        d.setVar("TDX_IMX_HAB_CST_CSF_CERT", akv_pkcs11_hab_uri(csf_label))
+        d.setVar("TDX_IMX_HAB_CST_IMG_CERT", akv_pkcs11_hab_uri(img_label))
 
         d.setVar("TDX_SIGNED_HSM_FIT_TOKEN_URL", akv_pkcs11_key_uri(fit_label))
         d.setVar("TDX_SIGNED_HSM_FIT_TOKEN_LABEL", fit_label)
@@ -74,6 +74,9 @@ def akv_key_name(key_id, variable):
 
 def akv_pkcs11_key_uri(label):
     return "token=%s;object=%s" % (label, label)
+
+def akv_pkcs11_hab_uri(label):
+    return "pkcs11:token=%s;object=%s" % (label, label)
 
 def akv_pkcs11_cert_uri(label):
     return "pkcs11:token=%s;object=%s;type=cert" % (label, label)

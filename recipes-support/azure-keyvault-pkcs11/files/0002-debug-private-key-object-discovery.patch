@@ -1,0 +1,41 @@
+--- a/src/azure-keyvault-pkcs11.cpp
++++ b/src/azure-keyvault-pkcs11.cpp
+@@ -447,7 +447,14 @@
+ static CK_BBOOL has_object(AzureKeyVaultSlot& slot, CK_OBJECT_HANDLE idx) {
+     switch (idx) {
+         case PRIVATE_KEY_HANDLE:
+-            return slot.GetPublicKeyData().size() > 0;
++        {
++            bool has_key = slot.GetPublicKeyData().size() > 0;
++            if (!has_key) {
++                debug("Private key object for slot %s is unavailable because public key data could not be fetched.",
++                      slot.GetLabel().c_str());
++            }
++            return has_key;
++        }
+             break;
+         case CERTIFICATE_HANDLE:
+             return slot.GetCertificate() != NULL;
+@@ -479,9 +486,13 @@
+         // Pull the real attribute value
+         res = getAttributeForObject(slot, idx, attr.type, NULL_PTR, &buffer_size);
+         if (res != CKR_OK) {
++            debug("Object %lu in slot %s lacks requested attribute 0x%lx.",
++                  idx, slot.GetLabel().c_str(), attr.type);
+             return CK_FALSE;
+         }
+         if (buffer_size != attr.ulValueLen) {
++            debug("Object %lu in slot %s attribute 0x%lx length mismatch: actual=%lu requested=%lu.",
++                  idx, slot.GetLabel().c_str(), attr.type, buffer_size, attr.ulValueLen);
+             return CK_FALSE;
+         }
+         buffer = (unsigned char*)malloc(buffer_size);
+@@ -506,6 +517,8 @@
+         // Otherwise require exact match
+         if (memcmp(buffer, attr.pValue, buffer_size) != 0) {
+             free(buffer);
++            debug("Object %lu in slot %s attribute 0x%lx value mismatch.",
++                  idx, slot.GetLabel().c_str(), attr.type);
+             return CK_FALSE;
+         }
+         free(buffer);

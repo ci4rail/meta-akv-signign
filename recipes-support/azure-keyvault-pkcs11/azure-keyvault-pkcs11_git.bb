@@ -6,6 +6,7 @@ LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda
 SRC_URI = "\
     git://github.com/jepio/azure-keyvault-pkcs11.git;protocol=https;branch=main \
     file://0001-limit-credential-chain-to-non-interactive-ci-sources.patch \
+    file://0002-debug-private-key-object-discovery.patch \
 "
 SRCREV = "c72d89bf0b17f8c21a93870efaaabb93c0dc9c63"
 PV = "0.1+git"

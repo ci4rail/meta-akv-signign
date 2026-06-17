@@ -146,12 +146,17 @@ akv_signing_prepare() {
     fi
     [ -x "${srktool}" ] || bbfatal "srktool not found; cannot generate HAB SRK table/fuse files"
 
-    "${srktool}" \
+    srktool_log="${AKV_HAB_SRK_DIR}/srktool.log"
+    if ! "${srktool}" \
         --hab_ver 4 \
         --table "${AKV_HAB_SRK_TABLE}" \
         --efuses "${AKV_HAB_SRK_FUSE}" \
         --digest "${TDX_IMX_HAB_CST_DIG_ALGO}" \
-        --certs "${certs}" || bbfatal "srktool failed while generating HAB SRK table/fuse files"
+        --certs "${certs}" > "${srktool_log}" 2>&1; then
+        bbwarn "srktool output follows:"
+        cat "${srktool_log}"
+        bbfatal "srktool failed while generating HAB SRK table/fuse files"
+    fi
 
     for d in \
         "${RECIPE_SYSROOT_NATIVE}${libdir}/engines-3" \

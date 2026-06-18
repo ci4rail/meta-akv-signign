@@ -22,6 +22,7 @@ AKV_PKCS11_CONFIG_HOME = "${WORKDIR}/akv-signing"
 AKV_PKCS11_MODULE_PATH = "${RECIPE_SYSROOT_NATIVE}${libdir}/pkcs11/azure-keyvault-pkcs11.so"
 AKV_HAB_CST_WRAPPER = "${AKV_PKCS11_CONFIG_HOME}/cst-akv-wrapper"
 AKV_FETCH_CERT_TOOL = "${AKV_SIGNING_LAYERDIR}/scripts/akv-fetch-certificate.py"
+AKV_REFRESH_OIDC_TOOL = "${AKV_SIGNING_LAYERDIR}/scripts/github-oidc-refresh.py"
 
 DEPENDS:append = "${@bb.utils.contains('AKV_SIGNING_ENABLE', '1', ' azure-keyvault-pkcs11-native ca-certificates-native coreutils-native imx-code-signing-tool-native libp11-native openssl-native python3-native', '', d)}"
 
@@ -33,6 +34,8 @@ export AZURE_FEDERATED_TOKEN_FILE
 export AZURE_AUTHORITY_HOST
 export AZURE_APP_ID
 export AZURE_CLIENT_ID
+export ACTIONS_ID_TOKEN_REQUEST_URL
+export ACTIONS_ID_TOKEN_REQUEST_TOKEN
 export SSL_CERT_FILE = "${RECIPE_SYSROOT_NATIVE}${sysconfdir}/ssl/certs/ca-certificates.crt"
 export REQUESTS_CA_BUNDLE = "${RECIPE_SYSROOT_NATIVE}${sysconfdir}/ssl/certs/ca-certificates.crt"
 
@@ -100,11 +103,16 @@ akv_signing_prepare() {
         key_id="$1"
         output="$2"
         fetch_log="${output}.fetch.log"
+        akv_refresh_oidc_token
         python3 "${AKV_FETCH_CERT_TOOL}" --key-id "${key_id}" --output "${output}" > "${fetch_log}" 2>&1 || {
             bbwarn "Certificate fetch output for ${key_id} follows:"
             cat "${fetch_log}"
             bbfatal "Could not fetch the certificate matching Azure Key Vault key ${key_id}"
         }
+    }
+
+    akv_refresh_oidc_token() {
+        python3 "${AKV_REFRESH_OIDC_TOOL}" || bbfatal "Could not refresh GitHub Actions OIDC token"
     }
 
     akv_emit_slot() {
@@ -171,6 +179,7 @@ if [ -n "\$AZURE_FEDERATED_TOKEN_FILE" ]; then
     fi
 fi
 unset LD_PRELOAD FAKETIME FAKETIME_FMT
+python3 "${AKV_REFRESH_OIDC_TOOL}" || exit 1
 exec "${RECIPE_SYSROOT_NATIVE}${bindir}/cst" "\$@"
 EOF
     chmod 700 "${akv_cst_wrapper}"

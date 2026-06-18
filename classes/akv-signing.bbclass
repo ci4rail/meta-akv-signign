@@ -157,17 +157,17 @@ export AZURE_FEDERATED_TOKEN_FILE="${AZURE_FEDERATED_TOKEN_FILE}"
 export AZURE_SUBSCRIPTION_ID="${AZURE_SUBSCRIPTION_ID}"
 export AZURE_TENANT_ID="${AZURE_TENANT_ID}"
 export AZURE_KEYVAULT_PKCS11_DEBUG="1"
-case "\${AZURE_FEDERATED_TOKEN_FILE}" in
+case "\$AZURE_FEDERATED_TOKEN_FILE" in
     \\\\*)
         export AZURE_FEDERATED_TOKEN_FILE="\${AZURE_FEDERATED_TOKEN_FILE#?}"
         echo "AKV CST wrapper: stripped leading escape from Azure federated token file path."
         ;;
 esac
-if [ -n "\${AZURE_FEDERATED_TOKEN_FILE}" ]; then
-    if [ -r "\${AZURE_FEDERATED_TOKEN_FILE}" ]; then
+if [ -n "\$AZURE_FEDERATED_TOKEN_FILE" ]; then
+    if [ -r "\$AZURE_FEDERATED_TOKEN_FILE" ]; then
         echo "AKV CST wrapper: Azure federated token file is readable."
     else
-        echo "AKV CST wrapper: Azure federated token file is not readable: \${AZURE_FEDERATED_TOKEN_FILE}" >&2
+        echo "AKV CST wrapper: Azure federated token file is not readable: \$AZURE_FEDERATED_TOKEN_FILE" >&2
     fi
 fi
 exec "${RECIPE_SYSROOT_NATIVE}${bindir}/cst" "\$@"

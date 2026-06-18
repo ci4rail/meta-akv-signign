@@ -157,6 +157,13 @@ export AZURE_FEDERATED_TOKEN_FILE="${AZURE_FEDERATED_TOKEN_FILE}"
 export AZURE_SUBSCRIPTION_ID="${AZURE_SUBSCRIPTION_ID}"
 export AZURE_TENANT_ID="${AZURE_TENANT_ID}"
 export AZURE_KEYVAULT_PKCS11_DEBUG="1"
+if [ -n "\${AZURE_FEDERATED_TOKEN_FILE}" ]; then
+    if [ -r "\${AZURE_FEDERATED_TOKEN_FILE}" ]; then
+        echo "AKV CST wrapper: Azure federated token file is readable."
+    else
+        echo "AKV CST wrapper: Azure federated token file is not readable: \${AZURE_FEDERATED_TOKEN_FILE}" >&2
+    fi
+fi
 exec "${RECIPE_SYSROOT_NATIVE}${bindir}/cst" "\$@"
 EOF
     chmod 700 "${akv_cst_wrapper}"

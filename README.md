@@ -69,11 +69,33 @@ The build environment must provide:
 
 ```text
 AZURE_TENANT_ID
-AZURE_APP_ID or AZURE_CLIENT_ID
+AZURE_CLIENT_ID or AZURE_APP_ID
 AZURE_FEDERATED_TOKEN_FILE
 ```
 
-`AZURE_SUBSCRIPTION_ID` and `AZURE_AUTHORITY_HOST` may also be passed through.
+Only one client identifier is required. The `akv-signing` class maps
+`AZURE_APP_ID` to `AZURE_CLIENT_ID` before invoking the certificate fetch helper
+or CST wrapper because Azure workload identity uses `AZURE_CLIENT_ID`. The
+GitHub Actions workflow currently passes both variables with the same value for
+compatibility with the layer and with Azure Identity based tools.
+
+`AZURE_SUBSCRIPTION_ID` is not required by this layer's certificate fetch or
+signing path. It is passed through by the production kasfile and workflow, but
+Key Vault data-plane certificate reads and signing requests are authorized by
+the tenant, client ID, federated token, and Key Vault permissions.
+
+`AZURE_AUTHORITY_HOST` is optional for public Azure. If it is unset, the helper
+uses `https://login.microsoftonline.com`. Set it only when the build must use a
+different Azure cloud authority.
+
+For GitHub Actions, the build can either provide a pre-created federated token
+file at `AZURE_FEDERATED_TOKEN_FILE`, or pass GitHub's OIDC request variables
+so the layer can refresh that file before certificate fetches and CST signing:
+
+```text
+ACTIONS_ID_TOKEN_REQUEST_URL
+ACTIONS_ID_TOKEN_REQUEST_TOKEN
+```
 
 The federated credential should be scoped to the repository and protected
 GitHub environment used for firmware signing. The signing job needs:

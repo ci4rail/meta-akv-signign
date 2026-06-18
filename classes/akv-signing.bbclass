@@ -170,6 +170,7 @@ if [ -n "\$AZURE_FEDERATED_TOKEN_FILE" ]; then
         echo "AKV CST wrapper: Azure federated token file is not readable: \$AZURE_FEDERATED_TOKEN_FILE" >&2
     fi
 fi
+unset LD_PRELOAD FAKETIME FAKETIME_FMT
 exec "${RECIPE_SYSROOT_NATIVE}${bindir}/cst" "\$@"
 EOF
     chmod 700 "${akv_cst_wrapper}"
